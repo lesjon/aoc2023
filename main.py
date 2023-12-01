@@ -1,20 +1,44 @@
 import unittest
 
+
+def replace_written(number: str) -> str:
+    digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+    written = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',  'nine']
+    try:
+        index: int = written.index(number)
+        return digits[index]
+    except ValueError:
+        return number
+    
+
 def art_sum(text: str) -> int:
+    digits = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',  'nine'}
     total = 0
     for line in text.splitlines():
         if len(line) <= 1:
             continue
-        first = ''
-        last = ''
-        for c in line:
-            if c in '0123456789':
-                first = c
+        number = []
+        for i in range(len(line)):
+            for digit in digits:
+                if line[i:].startswith(digit):
+                    number.append(digit)
+                    break
+            else:
+                continue
+            break
 
-        for c in reversed(line):
-            if c in '0123456789':
-                last = c
-        total += int(last + first)
+        for i in range(len(line)-1, -1, -1):
+            for digit in digits:
+                if line[i:].startswith(digit):
+                    number.append(digit)
+                    break
+            else:
+                continue
+            break
+        print(f'{number}')
+        number = list(map(replace_written, number))
+
+        total += int(''.join(number))
     return total
 
 def main():
@@ -27,10 +51,13 @@ if __name__ == "__main__":
 
 
 class Tests(unittest.TestCase):
-    text = '''1abc2
-pqr3stu8vwx
-a1b2c3d4e5f
-treb7uchet'''
+    text = ''' two1nine
+eightwothree
+abcone2threexyz
+xtwone3four
+4nineeightseven2
+zoneight234
+7pqrstsixteen '''
     def test(self):
-        self.assertEqual(142, art_sum(self.text))
+        self.assertEqual(281, art_sum(self.text))
 
