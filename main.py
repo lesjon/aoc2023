@@ -1,63 +1,46 @@
 import unittest
 
 
-def replace_written(number: str) -> str:
-    digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-    written = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',  'nine']
-    try:
-        index: int = written.index(number)
-        return digits[index]
-    except ValueError:
-        return number
-    
+def sum_possible_ids(text: str, red:int, green: int, blue: int) -> int:
+    games = text.splitlines()
+    color_counts = {"red": red, 'green': green, 'blue': blue}
+    result = 0
+    for game in games:
 
-def art_sum(text: str) -> int:
-    digits = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',  'nine'}
-    total = 0
-    for line in text.splitlines():
-        if len(line) <= 1:
-            continue
-        number = []
-        for i in range(len(line)):
-            for digit in digits:
-                if line[i:].startswith(digit):
-                    number.append(digit)
-                    break
-            else:
-                continue
-            break
+        match game.split():
+            case ('Game', id, *counts):
+                id = id[:-1]
+                for i in range(0, len(counts),2):
+                    color = counts[i+1]
+                    color = color.rstrip(',;')
+                    must = color_counts[color]
+                    if int( counts[i]) > must:
+                        break
+                else:
+                    print(f'possible {game=}')
+                    result += int(id)
+                    continue
+                print(f'impossible {game=}')
+            case other:
+                print('COULD NOT PARSE:', other)
+    return result
 
-        for i in range(len(line)-1, -1, -1):
-            for digit in digits:
-                if line[i:].startswith(digit):
-                    number.append(digit)
-                    break
-            else:
-                continue
-            break
-        print(f'{number}')
-        number = list(map(replace_written, number))
-
-        total += int(''.join(number))
-    return total
 
 def main():
     with open('input.txt', 'r') as f:
         text = f.read()
-    print(art_sum(text))
+    print(sum_possible_ids(text, 12, 13, 14))
 
 if __name__ == "__main__":
     main()
 
 
 class Tests(unittest.TestCase):
-    text = ''' two1nine
-eightwothree
-abcone2threexyz
-xtwone3four
-4nineeightseven2
-zoneight234
-7pqrstsixteen '''
+    text = '''Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
+Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue
+Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red
+Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red
+Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green'''
     def test(self):
-        self.assertEqual(281, art_sum(self.text))
+        self.assertEqual(8, sum_possible_ids(self.text, 12, 13, 14))
 
