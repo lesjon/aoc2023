@@ -1,62 +1,38 @@
 import unittest
 import math
-import itertools
+from itertools import takewhile
 
-TOKENS =  '*+#%$!@^&-=/'
-
-def id_coords(text:str) -> set[tuple[int,int,int,int]]:
-    ids = set()
-    for y,l in enumerate(text.splitlines()):
+def find_adjacent_nums(text: str, loc: tuple[int,int]) -> list[int]:
+    result = []
+    lines = text.splitlines()
+    for y in range(loc[1]-1,loc[1]+2):
         skip = 0
-        for x, c in enumerate(l):
-            if skip > 0:
+        for x in range(loc[0]-1,loc[0]+2):
+            print(f'{x=}{y=}{skip=}')
+            if skip > 1:
                 skip -= 1
                 continue
-            if c in '0123456789':
-                num = itertools.takewhile(lambda c: c in '0123456789', l[x:] )
-                num = ''.join(num)
-                id = int(num)
-                ids.add((x,y, id, len(num)))
-                skip = len(num)
-    return ids
-
-def token_coords(text:str) -> set[tuple[int,int]]:
-    coords = set()
-    for y,l in enumerate(text.splitlines()):
-        for x, c in enumerate(l):
-            if c in TOKENS:
-                coords.add((x,y))
-            elif c in '0123456789':
-                pass
-            elif c in '.':
-                pass
-            else:
-                print(c, 'not recognised as token')
-    return coords
-
-def adjacent_to_coord(loc: tuple[int, int], coords: set[tuple[int,int]]) -> int:
-    for coord in coords:
-        x,y = loc[0] -coord[0], loc[1] -coord[1] 
-        if abs(x) <= 1 and abs(y) <= 1:
-            return True
-    return False
-
-def d3p1(text: str) -> int:
+            if x == 0 and y == 0:
+                continue
+            if lines[y][x] in '0123456789':
+                digits = takewhile(lambda c: c in '0123456789', reversed(lines[y][:x]))
+                start = ''.join(reversed(list(digits)))
+                end = ''.join(takewhile(lambda c: c in '0123456789', lines[y][x:]))
+                skip = len(end)
+                print('start, end:', start, end)
+                result.append(int(start+end))
+    return result
+    
+def d3p2(text: str) -> int:
     result = 0
-    coords = token_coords(text)
-    ids = id_coords(text)
-    for id in ids:
-        adjacent = False
-        for x in range(id[0], id[0]+id[3]):
-            if adjacent_to_coord((x,id[1]), coords):
-                adjacent = True
-                break
-        if adjacent:
-            print(id, 'is adjacent')
-            result += id[2]
-        else:
-            print(id, 'is not adjacent')
-
+    for y, l in enumerate(text.splitlines()):
+        for x,c in enumerate(l):
+            if c == '*':
+                print('gear at', (x,y))
+                nums = find_adjacent_nums(text, (x,y))
+                if len(nums) == 2:
+                    ratio = math.prod(nums)
+                    result += ratio
     return result
 
 
@@ -66,7 +42,7 @@ def main():
     with open('input.txt', 'r') as f:
         text = f.read()
 
-    print(d3p1(text))
+    print(d3p2(text))
 
 if __name__ == "__main__":
     main()
@@ -85,5 +61,5 @@ class Tests(unittest.TestCase):
 .664.598..
 '''
     def test(self):
-        self.assertEqual(4361, d3p1(self.text))
+        self.assertEqual(467835, d3p2(self.text))
 
