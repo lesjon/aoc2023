@@ -1,39 +1,29 @@
 import unittest
-import math
-from itertools import takewhile
 
-def find_adjacent_nums(text: str, loc: tuple[int,int]) -> list[int]:
-    result = []
-    lines = text.splitlines()
-    for y in range(loc[1]-1,loc[1]+2):
-        skip = 0
-        for x in range(loc[0]-1,loc[0]+2):
-            print(f'{x=}{y=}{skip=}')
-            if skip > 1:
-                skip -= 1
-                continue
-            if x == 0 and y == 0:
-                continue
-            if lines[y][x] in '0123456789':
-                digits = takewhile(lambda c: c in '0123456789', reversed(lines[y][:x]))
-                start = ''.join(reversed(list(digits)))
-                end = ''.join(takewhile(lambda c: c in '0123456789', lines[y][x:]))
-                skip = len(end)
-                print('start, end:', start, end)
-                result.append(int(start+end))
-    return result
     
-def d3p2(text: str) -> int:
-    result = 0
-    for y, l in enumerate(text.splitlines()):
-        for x,c in enumerate(l):
-            if c == '*':
-                print('gear at', (x,y))
-                nums = find_adjacent_nums(text, (x,y))
-                if len(nums) == 2:
-                    ratio = math.prod(nums)
-                    result += ratio
-    return result
+def d4p1(text: str) -> int:
+    total = 0
+    for line in text.splitlines():
+        print(line)
+        card, game = line.split('|')
+        print(f'{card=}, {game=}')
+        winning = {int(s) for s in game.split()}
+        id, card = card.split(':')
+        print(f'{winning=}, {card=}')
+        numbers = [int(c) for c in card.split()]
+        print(numbers)
+        correct = 0
+        for n in numbers:
+            if n in winning:
+                correct += 1
+        print(f'{correct=}')
+        if correct > 0:
+            total += 2 ** (correct-1)
+    return total
+
+
+    
+    
 
 
 
@@ -42,24 +32,20 @@ def main():
     with open('input.txt', 'r') as f:
         text = f.read()
 
-    print(d3p2(text))
+    print(d4p1(text))
 
 if __name__ == "__main__":
     main()
 
 
 class Tests(unittest.TestCase):
-    text = '''467..114..
-...*......
-..35..633.
-......#...
-617*......
-.....+.58.
-..592.....
-......755.
-...$.*....
-.664.598..
+    text = '''Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
+Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19
+Card 3:  1 21 53 59 44 | 69 82 63 72 16 21 14  1
+Card 4: 41 92 73 84 69 | 59 84 76 51 58  5 54 83
+Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
+Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11
 '''
     def test(self):
-        self.assertEqual(467835, d3p2(self.text))
+        self.assertEqual(13, d4p1(self.text))
 
