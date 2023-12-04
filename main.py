@@ -3,7 +3,9 @@ import unittest
     
 def d4p1(text: str) -> int:
     total = 0
-    for line in text.splitlines():
+    lines = text.splitlines()
+    counts = [1 for _ in lines]
+    for i, line in enumerate(lines):
         print(line)
         card, game = line.split('|')
         print(f'{card=}, {game=}')
@@ -17,9 +19,10 @@ def d4p1(text: str) -> int:
             if n in winning:
                 correct += 1
         print(f'{correct=}')
-        if correct > 0:
-            total += 2 ** (correct-1)
-    return total
+        for j in range(i+1, i+correct+1):
+            print(f'{j=}')
+            counts[j] += counts[i]
+    return sum(counts)
 
 
     
@@ -47,5 +50,5 @@ Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
 Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11
 '''
     def test(self):
-        self.assertEqual(13, d4p1(self.text))
+        self.assertEqual(30, d4p1(self.text))
 
