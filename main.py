@@ -2,32 +2,42 @@ import unittest
 
     
 def d4p1(text: str) -> int:
-    total = 0
-    lines = text.splitlines()
-    counts = [1 for _ in lines]
-    for i, line in enumerate(lines):
-        print(line)
-        card, game = line.split('|')
-        print(f'{card=}, {game=}')
-        winning = {int(s) for s in game.split()}
-        id, card = card.split(':')
-        print(f'{winning=}, {card=}')
-        numbers = [int(c) for c in card.split()]
-        print(numbers)
-        correct = 0
-        for n in numbers:
-            if n in winning:
-                correct += 1
-        print(f'{correct=}')
-        for j in range(i+1, i+correct+1):
-            print(f'{j=}')
-            counts[j] += counts[i]
-    return sum(counts)
+    blocks = text.split('\n\n')
+    seeds = blocks[0].split()[1:]
+    seeds = list(map(int,seeds))
+    print(f'{seeds=}')
+    resource_map = dict()
+    for block in blocks[1:]:
+        print(f'{block=}')
+        lines = block.splitlines()
+        from_to, _ = lines[0].split()
+        map_from, _, map_to = from_to.split('-')
+        resource_map.update({(map_from, map_to):dict()})
+        for line in lines[1:]:
+            dest_start, src_start, count = line.split()
+            dest_start, src_start, count = int(dest_start), int(src_start), int(count)
+            resource_map[(map_from, map_to)].update({range(src_start, src_start + count): (src_start, dest_start)})
+        print(resource_map)
+    lowest_location = 999999999999999
+    for seed in seeds:
+        value = seed
+        resource = 'seed'
+        while resource != 'location':
+            for key in resource_map:
+                if key[0] != resource:
+                    continue
+                try:
+                    ranges = resource_map[key]
+                    for r in ranges:
+                        if value in r:
+                            value = ranges[r][1] + (value - ranges[r][0])
+                            break
+                except KeyError:
+                    pass  # value maps to itself
+                resource = key[1]
+        lowest_location = min(lowest_location, value)
 
-
-    
-    
-
+    return lowest_location
 
 
 
@@ -39,16 +49,52 @@ def main():
 
 if __name__ == "__main__":
     main()
-
+# The gardener and his team want to get started as soon as possible, so they'd like to know the closest location that needs a seed. Using these maps, find the lowest location number that corresponds to any of the initial seeds. To do this, you'll need to convert each seed number through other categories until you can find its corresponding location number. In this example, the corresponding types are:
+#
+#     Seed 79, soil 81, fertilizer 81, water 81, light 74, temperature 78, humidity 78, location 82.
+#     Seed 14, soil 14, fertilizer 53, water 49, light 42, temperature 42, humidity 43, location 43.
+#     Seed 55, soil 57, fertilizer 57, water 53, light 46, temperature 82, humidity 82, location 86.
+#     Seed 13, soil 13, fertilizer 52, water 41, light 34, temperature 34, humidity 35, location 35.
+#
+# So, the lowest location number in this example is 35.
+#
+# What is the lowest location number that corresponds to any of the initial seed numbers?
 
 class Tests(unittest.TestCase):
-    text = '''Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
-Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19
-Card 3:  1 21 53 59 44 | 69 82 63 72 16 21 14  1
-Card 4: 41 92 73 84 69 | 59 84 76 51 58  5 54 83
-Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
-Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11
+    text = '''seeds: 79 14 55 13
+
+seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15
+
+fertilizer-to-water map:
+49 53 8
+0 11 42
+42 0 7
+57 7 4
+
+water-to-light map:
+88 18 7
+18 25 70
+
+light-to-temperature map:
+45 77 23
+81 45 19
+68 64 13
+
+temperature-to-humidity map:
+0 69 1
+1 0 69
+
+humidity-to-location map:
+60 56 37
+56 93 4
 '''
     def test(self):
-        self.assertEqual(30, d4p1(self.text))
+        self.assertEqual(35, d4p1(self.text))
 
