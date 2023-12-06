@@ -8,23 +8,22 @@ def distance(time:int, hold: int) -> int:
 def d5p1(text: str) -> int:
     times, records = text.splitlines()
     times, records = times.split()[1:], records.split()[1:]
-    times, records = map(int, times), map(int, records)
+    time, record = int(''.join( times)), int(''.join(records))
     total = 1
-    for time, record in zip(times, records):
-        low = 0
-        for lo in range(time):
-            if distance(time, lo) > record:
-                break
-            low = lo
-        high = time
-        for hi in reversed(range(time)):
-            if distance(time, hi) > record:
-                break
-            high = hi
-        print(f'{low=} {high=}')
-        options =high - low - 1
-        print(f'{options=}')
-        total *= options
+    low = 0
+    for lo in range(time):
+        if distance(time, lo) > record:
+            break
+        low = lo
+    high = time
+    for hi in reversed(range(time)):
+        if distance(time, hi) > record:
+            break
+        high = hi
+    print(f'{low=} {high=}')
+    options =high - low - 1
+    print(f'{options=}')
+    total *= options
     return total
 
 
@@ -70,5 +69,5 @@ class Tests(unittest.TestCase):
 Distance:  9  40  200
 '''
     def test(self):
-        self.assertEqual(288, d5p1(self.text))
+        self.assertEqual(71503, d5p1(self.text))
 
