@@ -29,10 +29,8 @@ def main(text: str) -> int:
     repeats: list[int|None] = [None for _ in currents]
     count = 0
     while not all(repeats):
-        print(f'{count}')
         for i in range(len(currents)):
             current = currents[i]
-            print(f'{current=}')
             if current is None:
                 continue
             lr = route[count % len(route)]
@@ -49,8 +47,24 @@ def main(text: str) -> int:
         count += 1
     print(f'{repeats=}')
     print(f'{z_indices=}')
-    lcm = math.lcm(*map(lambda zs: zs[0], z_indices))
+    lcm = 999999999999999999999999999999999
+    for option in calc_options(z_indices):
+        print(f'{option=}')
+        lcm = min(lcm, math.lcm(*option))
     return lcm
+
+def calc_options(lens: list[list[int]]) -> list[list[int]]:
+    result = []
+    if len(lens) == 1:
+        return [[n] for n in lens[0]]
+    current = lens.pop()
+    for n in current:
+        sub_options = calc_options(lens)
+        for sub in sub_options:
+            result.append([*sub, n])
+    return result
+
+
 
 
 if __name__ == "__main__":
