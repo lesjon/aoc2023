@@ -1,4 +1,5 @@
 import unittest
+import math
 
 
 def parse(node: str) -> tuple[str, dict[str,str]]:
@@ -16,18 +17,27 @@ def main(text: str) -> int:
     route = lines[0]
     nodes = lines[2:]
     nodes = map(parse, nodes)
-    print(f'{nodes=}')
     nodes = {n[0]: n[1] for n in nodes}
-    current = ('AAA', nodes['AAA'])
-    i = 0
+    print(f'{nodes=}')
+    currents = []
+    for node in nodes.items():
+        if node[0].endswith('A'):
+            currents.append(node)
+    print(f'path_starts={currents}')
     count = 0
-    while current[0] != 'ZZZ':
-        count += 1
-        lr = route[i]
-        i = (i+1) % len(route)
-        next = current[1][lr]
-        current = (next, nodes[next])
-    return count
+    path_z_indices = [[] for _ in currents]
+    while all(map(lambda zs: len(zs) == 0, path_z_indices)):
+        for i in range(len(currents)):
+            current = currents[i]
+            if current[0].endswith('Z'):
+                path_z_indices[i].append(count)
+            lr = route[count % len(route)]
+            count += 1
+            next = current[1][lr]
+            currents[i] = (next, nodes[next])
+    print(f'{path_z_indices=}')
+    lowest_zs = [zs[0] for zs in path_z_indices]
+    return math.lcm(*lowest_zs)
 
 
 if __name__ == "__main__":
