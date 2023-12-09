@@ -5,19 +5,23 @@ def main(text: str) -> int:
     total = 0
     for line in text.splitlines():
         nums = list(map(int, line.split()))
-        ends = []
+        prevs = []
         while not all(map(lambda x: x == 0, nums)):
             print(f'{len(nums)=}')
             next_nums = []
             for i in range(len(nums)):
-                print(f'{i=} {nums=} {ends=}')
+                print(f'{i=} {nums=} {prevs=}')
                 if i == len(nums)-1:
-                    print(f'end')
-                    ends.append(nums[i])
                     continue
+                elif i == 0:
+                    prevs.append(nums[0])
                 next_nums.append(nums[i+1] - nums[i])
             nums = next_nums
-        total += sum(ends)
+        current = 0
+        for prev in reversed(prevs):
+            print(f'{prev=} {current=}')
+            current = prev - current
+        total += current
         print(f'{total=}')
     return total
 
@@ -33,4 +37,4 @@ class Tests(unittest.TestCase):
 1 3 6 10 15 21
 10 13 16 21 30 45'''
     def test(self):
-        self.assertEqual(68, main(self.text))
+        self.assertEqual(2, main(self.text))
