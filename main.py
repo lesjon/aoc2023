@@ -1,233 +1,135 @@
 import unittest
 
-
-def connecteds(x: int, y: int, field: list[str]) -> list[tuple[int, int]]:
+def get_connections(x: int, y: int, field: list[str]) -> list[tuple[int,int]]:
+    connections = []
     match field[y][x]:
-        case 'F':
-            return [(x,y+1), (x+1,y)]
-        case '7':
-            return [(x,y+1), (x-1,y)]
+        case 'S':
+            print(f'get_connections with S at({x}, {y})')
+            if x - 1 >= 0:
+                c = field[y][x-1]
+                if c in '-FL':
+                    connections.append((x-1,y))
+            if x + 1 >= 0:
+                c = field[y][x+1]
+                if c in '-7J':
+                    connections.append((x+1,y))
+            if y - 1 >= 0:
+                c = field[y-1][x]
+                if c in '|F7':
+                    connections.append((x,y-1))
+            if y + 1 >= 0:
+                c = field[y+1][x]
+                if c in '|LJ':
+                    connections.append((x,y+1))
         case '-':
-            return [(x-1,y), (x+1,y)]
+            connections.extend([(x-1,y), (x+1,y)])
         case '|':
-            return [(x,y-1), (x,y+1)]
-        case 'J':
-            return [(x-1,y), (x,y-1)]
+            connections.extend([(x,y-1), (x,y+1)])
+        case 'F':
+            connections.extend([(x+1,y), (x,y+1)])
         case 'L':
-            return [(x,y-1), (x+1,y)]
-        case _:
-            return []
+            connections.extend([(x+1,y), (x,y-1)])
+        case '7':
+            connections.extend([(x-1,y), (x,y+1)])
+        case 'J':
+            connections.extend([(x-1,y), (x,y-1)])
+    return connections
 
-def find_starts(s: tuple[int, int], field: list[str]) -> tuple[list[tuple[int,int]], str]:
-    result = []
-    x, y = s
-    replacements = {'-','|','F','L','7','J'}
-    if x-1 >=0:
-        match field[y][x-1]:
-            case 'F' | '-' | 'L':
-                replacements.remove('F')
-                replacements.remove('|')
-                replacements.remove('L')
-                result.append((x-1, y))
-    if x+1 < len(field[y]):
-        match field[y][x+1]:
-            case 'J' | '-' | '7':
-                replacements.remove('J')
-                replacements.remove('|')
-                replacements.remove('7')
-                result.append((x+1, y))
-    if y-1 >=0:
-        match field[y-1][x]:
-            case 'F' | '|' | '7':
-                replacements.remove('J')
-                replacements.remove('|')
-                replacements.remove('7')
-                result.append((x, y-1))
-    if y+1 < len(field):
-        match field[y+1][x]:
-            case 'J' | '|' | 'L':
-                result.append((x, y+1))
-    assert len(result) == 2
-    return '', result
 
+def is_enclosed(x: int, y: int, field: list[str], path: set[tuple[int, int]]) -> bool:
+    result = 0
+    fs = 0
+    ls = 0
+    ss = 0
+    js = 0
+    for l_x in range(x):
+        if not (l_x, y) in path:
+            continue
+        c = field[y][l_x]
+        match c:
+            case 'S':
+                raise Exception('Did not replace S!')
+            case '-':
+                pass
+            case '|':
+                result += 1
+            case 'F':
+                fs += 1
+            case 'L':
+                ls += 1
+            case '7':
+                ss += 1
+            case 'J':
+                js += 1
+    result += ls - js
+    return result % 2 == 1
+
+def replace_start(field: list[str], x: int,y: int):
+    row = field[y]
+    assert row[x] == 'S'
+    nexts = get_connections(x, y, field)
+    print(f'{nexts=}')
+    directions = {(n[0]-x, n[1]-y) for n in nexts}
+    print(f'{directions=}')
+    pipe = None
+    if (0,1) in directions:
+        if (0,-1) in directions:
+            pipe = '|'
+        elif (1,0) in directions:
+            pipe = 'F'
+        elif (-1,0) in directions:
+            pipe = '7'
+    elif (0,-1) in directions:
+        if (-1,0) in directions:
+            pipe = 'J'
+        elif (1,0) in directions:
+            pipe = 'L'
+    elif (1,0) in directions:
+        assert (-1,0) in directions
+        pipe = '-'
+    assert pipe
+    field[y] = row[:x] + pipe + row[x+1:]
 
 def main(text: str) -> int:
-    field = text.splitlines()
-    l = r = None
-    l_prev = r_prev = None
     path = set()
-    for y,row in enumerate(field):
+    field = text.splitlines()
+    start = None
+    for y, row in enumerate(field):
         for x, c in enumerate(row):
             if c == 'S':
-                path.add((x,y))
-                l_prev = r_prev = (x,y)
-                l, r = find_starts((x,y), field)
-                path.add(l)
-                path.add(r)
-    assert l
-    assert r
-    steps = 1
-    l_path = []
-    r_path = []
-    while True:
-        ls = connecteds(*l, field)
-        rs = connecteds(*r, field)
-        ls.remove(l_prev)
-        l_prev = l
-        l = ls[0]
-        l_path.append(l)
-        rs.remove(r_prev)
-        r_prev  = r
-        r = rs[0]
-        r_path.append(r)
+                start = (x,y)
+                path.add(start)
+    assert not start is None
+    
+    replace_start(field, start[0],start[1])
 
-        steps += 1
-        if l == r:
-            break
-    path = path.union(l_path)
-    path = path.union(r_path)
-    print(f'{path=}')
-    enclosed_fields = set()
-    for y,row in enumerate(field):
+    positions = {start}
+    while positions:
+        current = positions.pop()
+        path.add(current)
+        nexts = get_connections(current[0], current[1], field)
+        positions.update(nexts)
+        positions -= path
+
+    enclosed = set()
+    for y, row in enumerate(field):
         for x, c in enumerate(row):
             if (x,y) in path:
                 continue
-            if enclosed(x, y, path, field):
-                enclosed_fields.add((x,y))
-    print(f'{enclosed_fields =}')
-    
-    for y,row in enumerate(field):
+            if is_enclosed(x, y, field, path):
+                enclosed.add((x,y))
+    for y, row in enumerate(field):
         for x, c in enumerate(row):
             if (x,y) in path:
-                print('p', end='')
-            elif enclosed(x, y, path, field):
+                print(c, end='')
+            elif (x,y) in enclosed:
                 print('I', end='')
             else:
                 print('.', end='')
         print()
-    return len(enclosed_fields)
+    return len(enclosed)
 
 
-def enclosed(x: int, y:int, path: set[tuple[int,int]], field: list[str]) -> bool:
-    l=r=t=b = 0
-    in_from = 0
-    for l_x in range(x):
-        if (l_x, y) in path:
-            c = field[y][l_x]
-            match c:
-                case '|':
-                    l += 1
-                case '-':
-                    pass
-                case 'F' | '7':
-                    match in_from:
-                        case 0:
-                            in_from = -1
-                        case -1:
-                            in_from = 0
-                        case 1:
-                            l += 1
-                            in_from = 0
-                case 'J' | 'L':
-                    match in_from:
-                        case 0:
-                            in_from = 1
-                        case 1:
-                            in_from = 0
-                        case -1:
-                            l += 1
-                            in_from = 0
-                case other:
-                    raise Exception(f'Unknown path: {other} at {(l_x, y)=}')
-    assert in_from == 0
-    for r_x in range(x, len(field[y])):
-        if ((r_x, y) in path):
-            c = field[y][r_x]
-            match c:
-                case '|':
-                    r += 1
-                case '-':
-                    pass
-                case 'F' | '7':
-                    match in_from:
-                        case 0:
-                            in_from = -1
-                        case -1:
-                            in_from = 0
-                        case 1:
-                            r += 1
-                            in_from = 0
-                case 'J' | 'L':
-                    match in_from:
-                        case 0:
-                            in_from = 1
-                        case 1:
-                            in_from = 0
-                        case -1:
-                            r += 1
-                            in_from = 0
-                case other:
-                    raise Exception(f'Unknown path: {other} at {(r_x, y)=}')
-    assert in_from == 0
-    for t_y in range(y):
-        if ((x, t_y) in path):
-            c = field[t_y][x]
-            match c:
-                case '-':
-                    t += 1
-                case '|':
-                    pass
-                case 'J' | '7':
-                    match in_from:
-                        case 0:
-                            in_from = -1
-                        case -1:
-                            in_from = 0
-                        case 1:
-                            t += 1
-                            in_from = 0
-                case 'F' | 'L':
-                    match in_from:
-                        case 0:
-                            in_from = 1
-                        case 1:
-                            in_from = 0
-                        case -1:
-                            t += 1
-                            in_from = 0
-                case other:
-                    raise Exception(f'Unknown path: {other} at {(x, t_y)}')
-    assert in_from == 0
-    for b_y in range(y, len(field)):
-        if (x, b_y) in path:
-            c = field[b_y][x]
-            match c:
-                case '-':
-                    b += 1
-                case '|':
-                    pass
-                case 'J' | '7':
-                    match in_from:
-                        case 0:
-                            in_from = -1
-                        case -1:
-                            in_from = 0
-                        case 1:
-                            b += 1
-                            in_from = 0
-                case 'F' | 'L':
-                    match in_from:
-                        case 0:
-                            in_from = 1
-                        case 1:
-                            in_from = 0
-                        case -1:
-                            b += 1
-                            in_from = 0
-                case other:
-                    raise Exception(f'Unknown path: {other} at {(x, b_y)=}')
-    assert in_from == 0
-    return l % 2 == 1 and r % 2 == 1 and t % 2 == 1 and b % 2 == 1
 
 if __name__ == "__main__":
     with open('input.txt', 'r') as f:
