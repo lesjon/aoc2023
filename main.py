@@ -1,4 +1,5 @@
 import unittest
+import itertools
 
 def parse(text: str) -> list[tuple[str, list[int]]]:
     result = map(str.split, text.splitlines())
@@ -6,72 +7,24 @@ def parse(text: str) -> list[tuple[str, list[int]]]:
     result = [(s, list(map(int, i))) for s, i in result]
     return result
 
-def partial_valid(solution: str, ints: list[int]) -> bool:
-    count = 0
-    result = []
-    for c in solution:
-        match c:
-            case '#':
-                count += 1
-            case '.':
-                if count > 0: 
-                    result.append(count)
-                count = 0
-            case '?':
-                break
-    if count > 0: 
-        result.append(count)
-    for i,c in enumerate(result):
-        if i >= len(ints):
-            return False
-        elif i == len(result) and c > ints[i]:
-            return False
-        elif c != ints[i]:
-            return False
-    needed_space = 0
-    for i in ints[len(result):]:
-        needed_space += 1+i
-    first_unknown = solution.find('?')
-    if first_unknown == -1 and needed_space > 0:
-        return False
-    elif len(solution) - first_unknown < needed_space:
-        return False
-    return True
-
-def valid(solution: str, ints: list[int]) -> bool:
-    count = 0
-    result = []
-    for c in solution:
-        match c:
-            case '#':
-                count += 1
-            case '.':
-                if count > 0: 
-                    result.append(count)
-                count = 0
-    if count > 0: 
-        result.append(count)
-    return result == ints
-
-def get_possibilities(line: str, ints: list[int]) -> set[str]:
-    result = set()
-    result.add(line)
-    while any(map(lambda l: '?' in l, result)):
-        next_set = set()
-        for line in result:
-            if not  '?' in line:
-                continue
-            for i, c in enumerate(line):
-                if c != '?':
-                    continue
-                dot = line[:i] + '.' + line[i+1:]
-                if partial_valid(dot, ints):
-                    next_set.add(dot)
-                broken = line[:i] + '#' + line[i+1:]
-                if partial_valid(broken , ints):
-                    next_set.add(broken)
-        result = next_set
+def get_space_needed(ints: list[int]) -> int:
+    result = -1
+    for i in ints:
+        result += 1 + i
     return result
+
+
+def get_possibilities(length: int, ints: list[int]) -> set[str]:
+    brokens = ['#' * i for i in ints]
+
+    working = ['.' for _ in range(length-sum(ints))]
+    minimal = [[b,w] for b,w in zip(brokens[:-1],working)].flatten()
+    minimal.append(brokens[-1])
+    result = []
+    for w in working[len(brokens)-1:]:
+
+
+    return set(possibilities)
 
 
 def main(text: str) -> int:
