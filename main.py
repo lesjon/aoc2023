@@ -10,10 +10,10 @@ class State:
 
     def roll_north(self):
         while self.boulders:
-            x,y = self.boulders.pop(0)
-            while True:
+            x,y = self.boulders.pop()
+            while y > 0:
                 y -= 1
-                if (x,y) in self.rocks or (x,y) in self.rolled_boulders or y < 0:
+                if (x,y) in self.rocks or (x,y) in self.rolled_boulders or y == 0:
                     self.rolled_boulders.append((x,y+1))
                     break
 

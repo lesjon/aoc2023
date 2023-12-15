@@ -1,151 +1,228 @@
-use std::collections::{HashMap, HashSet};
+use std::cmp::Ordering;
+use std::collections::{BTreeSet, HashMap};
+use std::fmt::{Display, Formatter};
 
-fn get_possibilities(s: &str) -> HashSet<String> {
-    let mut result = HashSet::new();
-    if !s.contains('?') {
-        result.insert(s.to_string());
-        return result;
-    }
-    let mut left_chars = vec![];
-    for (i, c) in s.char_indices() {
-        if c == '?' {
-            let subs = get_possibilities(&s[i + 1..]);
-            for mut sub in subs {
-                sub.insert(0, '.');
-                sub.insert_str(0, &String::from_utf8_lossy(&left_chars));
-                result.insert(sub.clone());
-                let dot_index = left_chars.len();
-                sub.remove(dot_index);
-                sub.insert(dot_index, '#');
-                result.insert(sub);
-            }
-            return result;
-        } else {
-            left_chars.push(c as u8);
-        }
-    }
-    panic!("Unreachable state '{s}' contains '?' but not found in for loop")
+#[derive(Ord, Eq, Debug, Clone, Hash)]
+struct State {
+    width: i32,
+    height: i32,
+    rocks: BTreeSet<(i32, i32)>,
+    boulders: BTreeSet<(i32, i32)>,
 }
 
-fn valid(possibility: &str, ints: &[i32]) -> bool {
-    let mut compare: Vec<i32> = Vec::with_capacity(ints.len());
-    let mut current = 0;
-    for c in possibility.chars() {
-        match c {
-            '.' => {
-                if current > 0 {
-                    compare.push(current);
-                    current = 0;
-                }
-            }
-            '#' => {
-                current += 1;
-            }
-            other => panic!("Unknown char {other}")
-        }
+impl PartialEq<Self> for State {
+    fn eq(&self, other: &Self) -> bool {
+        return self.boulders == other.boulders
     }
-    if current > 0 {
-        compare.push(current);
-    }
-    assert!(!compare.contains(&0));
-    if compare.len() != ints.len(){
-        return false;
-    }
-    return compare.iter().zip(ints).all(|(lhs, rhs)| rhs == lhs);
 }
 
-fn run(text: &str) -> usize {
-    let mut rows = HashMap::new();
-    for line in text.split("\n") {
-        let mut s = "";
-        for (i, part) in line.split_whitespace().enumerate() {
-            match i {
-                0 => s = part,
-                1 => {
-                    let ints = part.split(',').map(|num_str| num_str.parse::<i32>().unwrap()).collect::<Vec<i32>>();
-                    rows.insert(s, ints);
+impl PartialOrd for State {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.boulders.partial_cmp(&other.boulders)
+    }
+}
+
+impl Display for State {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if self.rocks.contains(&(x, y)) {
+                    write!(f, "#")?;
+                } else if self.boulders.contains(&(x, y)) {
+                    write!(f, "O")?;
+                } else {
+                    write!(f, ".")?;
                 }
-                _ => panic!("Unreachable state: {i}")
             }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
+
+fn parse(text: &str) -> State {
+    let width = text.lines().next().unwrap().len() as i32;
+    let height = text.lines().collect::<Vec<&str>>().len() as i32;
+    let mut rocks = BTreeSet::new();
+    let mut boulders = BTreeSet::new();
+    for (y, line) in text.lines().enumerate() {
+        for (x, c) in line.char_indices() {
+            match c {
+                '#' => rocks.insert((x as i32, y as i32)),
+                'O' => boulders.insert((x as i32, y as i32)),
+                '.' => false,
+                other => panic!("Unknown char {other}")
+            };
         }
     }
-    println!("rows = {rows:?}");
+    return State {
+        height,
+        width,
+        rocks,
+        boulders,
+    };
+}
+
+fn north_load(state: &State) -> i32 {
     let mut total = 0;
-
-    for (s, ints) in rows {
-        let possibilities = get_possibilities(s);
-        let p_count =possibilities.len();
-        println!("'{s}' has {p_count} possibilities");
-        let q_count = s.chars().filter(|c| c.eq(&'?')).count();
-        assert_eq!(p_count, usize::pow(2, q_count as u32));
-        let p_count = possibilities.iter().filter(|p| valid(p, &ints)).count();
-        total += p_count;
+    for (_, y) in state.boulders.iter() {
+        total += state.height - y;
     }
-    return total
+    total
 }
+
+fn roll_west(state: State) -> State {
+    let mut next_boulders = BTreeSet::new();
+    let mut sorted_boulders = state.boulders.into_iter().collect::<Vec<(i32, i32)>>();
+    sorted_boulders.sort_by_key(|t| t.0);
+
+    for (x, y) in sorted_boulders {
+        let mut next_x = 0;
+        for check_x in (0..=x).rev() {
+            if state.rocks.contains(&(check_x, y)) {
+                break;
+            }
+            if next_boulders.contains(&(check_x, y)) {
+                break;
+            }
+            next_x = check_x;
+        }
+        next_boulders.insert((next_x, y));
+    }
+    return State {
+        width: state.width,
+        boulders: next_boulders,
+        rocks: state.rocks,
+        height: state.height,
+    };
+}
+
+fn roll_east(state: State) -> State {
+    let mut next_boulders = BTreeSet::new();
+    let mut sorted_boulders = state.boulders.into_iter().collect::<Vec<(i32, i32)>>();
+    sorted_boulders.sort_by_key(|t| -t.0);
+
+    for (x, y) in sorted_boulders {
+        let mut next_x = state.width-1;
+        for check_x in x..state.width {
+            if state.rocks.contains(&(check_x, y)) {
+                break;
+            }
+            if next_boulders.contains(&(check_x, y)) {
+                break;
+            }
+            next_x = check_x;
+        }
+        next_boulders.insert((next_x, y));
+    }
+    return State {
+        width: state.width,
+        boulders: next_boulders,
+        rocks: state.rocks,
+        height: state.height,
+    };
+}
+
+fn roll_north(state: State) -> State {
+    let mut next_boulders = BTreeSet::new();
+    let mut sorted_boulders = state.boulders.into_iter().collect::<Vec<(i32, i32)>>();
+    sorted_boulders.sort_by_key(|t| t.1);
+
+    for (x, y) in sorted_boulders {
+        let mut next_y = 0;
+        for check_y in (0..=y).rev() {
+            if state.rocks.contains(&(x, check_y)) {
+                break;
+            }
+            if next_boulders.contains(&(x, check_y)) {
+                break;
+            }
+            next_y = check_y;
+        }
+        next_boulders.insert((x, next_y));
+    }
+    return State {
+        width: state.width,
+        boulders: next_boulders,
+        rocks: state.rocks,
+        height: state.height,
+    };
+}
+
+fn roll_south(state: State) -> State {
+    let mut next_boulders = BTreeSet::new();
+    let mut sorted_boulders = state.boulders.into_iter().collect::<Vec<(i32, i32)>>();
+    sorted_boulders.sort_by_key(|t| -t.1);
+
+    for (x, y) in sorted_boulders {
+        let mut next_y = state.height-1;
+        for check_y in y..state.height {
+            if state.rocks.contains(&(x, check_y)) {
+                break;
+            }
+            if next_boulders.contains(&(x, check_y)) {
+                break;
+            }
+            next_y = check_y;
+        }
+        next_boulders.insert((x, next_y));
+    }
+    return State {
+        width: state.width,
+        boulders: next_boulders,
+        rocks: state.rocks,
+        height: state.height,
+    };
+}
+
+fn run(text: &str, cycles: i32) -> i32 {
+    let mut seen = HashMap::new();
+    let mut seen_rev = HashMap::new();
+    let mut state = parse(text);
+    for i in 1..=cycles {
+        state = roll_north(state);
+        state = roll_west(state);
+        state = roll_south(state);
+        state = roll_east(state);
+        let load = north_load(&state);
+        println!("cycle {i}: load={load} {state} ");
+        if seen.contains_key(&state) {
+            println!("Found repeat state at {i} ");
+            let target_in_cycle = cycles - seen.get(&state).unwrap();
+            let cycle_len = i - seen.get(&state).unwrap();
+            let key = seen.get(&state).unwrap() + target_in_cycle % cycle_len;
+            println!("cycle_len={cycle_len} repeat is {key}");
+            return north_load(seen_rev.get(&key).unwrap());
+        }else {
+            seen.insert(state.clone(), i);
+            seen_rev.insert(i, state.clone());
+        }
+    }
+    north_load(&state)
+}
+
 fn main() {
-    let input = include_str!("../input.txt");
-    let total = run(input);
-    // 7320 too low
-    println!("{total}");
+    let text = include_str!("../input.txt");
+    println!("{}", run(text, 1000000000));
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{get_possibilities, run};
+    use crate::{run};
 
     #[test]
     fn test() {
-        let text = "????";
-        let expecteds = vec!["####", "###.", "##.#", "##..", "#.##", "#.#.", "#..#", "#...", ".###", ".##.", ".#.#", ".#..", "..##", "..#.", "...#", "...."];
-        let actual = get_possibilities(text);
-        assert_eq!(expecteds.len(), actual.len());
-        for expected in expecteds {
-            assert!(actual.contains(expected));
-        }
-    }
-
-    #[test]
-    fn test_sample(){
-        let text = "???.### 1,1,3
-.??..??...?##. 1,1,3
-?#?#?#?#?#?#?#? 1,3,1,6
-????.#...#... 4,1,1
-????.######..#####. 1,6,5
-?###???????? 3,2,1";
-        assert_eq!(21, run(text))
-    }
-
-    #[test]
-    fn test_sample1() {
-        assert_eq!(1, run("???.### 1,1,3"));
-    }
-    #[test]
-    fn test_sample1a() {
-        assert_eq!(3, run("????.### 1,1,3"));
-    }
-    #[test]
-    fn test_sample2() {
-        assert_eq!(4, run(".??..??...?##. 1,1,3"));
-    }
-    #[test]
-    fn test_sample3() {
-        assert_eq!(1, run("?#?#?#?#?#?#?#? 1,3,1,6"));
-    }
-    #[test]
-    fn test_sample4() {
-        assert_eq!(1, run("????.#...#... 4,1,1"));
-    }
-    #[test]
-    fn test_sample5() {
-        assert_eq!(4, run("????.######..#####. 1,6,5"));
-    }
-    #[test]
-    fn test_sample6() {
-        assert_eq!(10, run("?###???????? 3,2,1"));
-    }
-    #[test]
-    fn test_sample7() {
-        assert_eq!(1, run(".###.##.#..? 3,2,1"));
+        let text = "\
+O....#....
+O.OO#....#
+.....##...
+OO.#O....O
+.O.....O#.
+O.#..O.#.#
+..O..#O..O
+.......O..
+#....###..
+#OO..#....";
+        assert_eq!(64, run(text, 1000000000));
     }
 }
