@@ -1,45 +1,71 @@
 import unittest
 
-def reflection_from(n: int, line: str) -> int:
-    print(f'reflection_from({n}, {line})')
-    assert n > 0
-    smudges = 0
-    for i in range(n):
-        left = n-i-1
-        right = n+i
-        if left < 0 or right >= len(line):
-            break
-        if line[left] != line[right]:
-            smudges += 1
-    return smudges 
+class State:
+    def __init__(self, width: int, height: int):
+        self.rocks = []
+        self.boulders = []
+        self.rolled_boulders = []
+        self.width = width
+        self.height = height
+
+    def roll_north(self):
+        while self.boulders:
+            x,y = self.boulders.pop(0)
+            while True:
+                y -= 1
+                if (x,y) in self.rocks or (x,y) in self.rolled_boulders or y < 0:
+                    self.rolled_boulders.append((x,y+1))
+                    break
+
+    def __repr__(self) -> str:
+        s = ''
+        for y in range(self.height):
+            for x in range(self.width):
+                if (x, y) in self.boulders:
+                    s += 'o'
+                elif (x, y) in self.rolled_boulders:
+                    s += '0'
+                elif (x, y) in self.rocks:
+                    s += '#'
+                else:
+                    s += '.'
+            s += '\n'
+        return s
+    
+    def load_on_north(self) -> int:
+        assert not self.boulders
+        total = 0
+        for _, y in self.rolled_boulders:
+            total += self.height - y
+        return total
+
+
+
+
+
+def parse(text: str) -> State:
+    lines = text.splitlines()
+    state = State(len(lines[0]), len(lines))
+    for y, line in enumerate(lines):
+        for x, c in enumerate(line):
+            match c:
+                case '#':
+                    state.rocks.append((x,y))
+                case '.':
+                    pass
+                case 'O':
+                    state.boulders.append((x,y))
+                case other:
+                    raise Exception(f'Unexpected char: {other}')
+    return state
 
 def run(text: str) -> int:
-    total = 0
-    for block in text.split('\n\n'):
-        lines = block.splitlines()
-        print(f'{lines=}')
-        hori_reflections = {i: 0 for i in range(1, block.index('\n'))}
-        for line in lines:
-            for i in hori_reflections:
-                hori_reflections[i] += reflection_from(i, line)
-        hori_reflections = dict(filter(lambda e: e[1] == 1, hori_reflections.items()))
-        print(f'{hori_reflections=}')
-        if len(hori_reflections) == 1:
-            total += next(iter(hori_reflections))
-            continue
-        lines = list(map(lambda t: ''.join(t), zip(*lines)))
-        vert_reflections = {i: 0 for i in range(1, len(lines[0]))}
-        print(f'flipped:')
-        for line in lines:
-            print(line)
-        for line in lines:
-            for i in vert_reflections:
-                vert_reflections[i] += reflection_from(i, line)
-        vert_reflections = dict(filter(lambda e: e[1] == 1, vert_reflections .items()))
-        print(f'{vert_reflections=}')
-        assert len(vert_reflections) == 1
-        total += 100 * next(iter(vert_reflections))
-    return total
+    state = parse(text)
+    print(f'{state}')
+    state.roll_north()
+    print(f'{state}')
+    return state.load_on_north()
+    
 
 if __name__ == "__main__":
     with open('input.txt') as f:
@@ -47,21 +73,18 @@ if __name__ == "__main__":
 
 class Tests(unittest.TestCase):
     def test(self):
-        text = '''#.##..##.
-..#.##.#.
-##......#
-##......#
-..#.##.#.
-..##..##.
-#.#.##.#.
-
-#...##..#
-#....#..#
-..##..###
-#####.##.
-#####.##.
-..##..###
-#....#..#'''
-        self.assertEqual(400, run(text))
+        text = '''\
+O....#....
+O.OO#....#
+.....##...
+OO.#O....O
+.O.....O#.
+O.#..O.#.#
+..O..#O..O
+.......O..
+#....###..
+#OO..#....\
+'''
+        self.assertEqual(136, run(text))
 
 
