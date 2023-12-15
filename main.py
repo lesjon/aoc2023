@@ -1,71 +1,20 @@
 import unittest
 
-class State:
-    def __init__(self, width: int, height: int):
-        self.rocks = []
-        self.boulders = []
-        self.rolled_boulders = []
-        self.width = width
-        self.height = height
+def parse(text: str) -> list[str]:
+    text = text.replace('\n', '')
+    return text.split(',')
 
-    def roll_north(self):
-        while self.boulders:
-            x,y = self.boulders.pop()
-            while y > 0:
-                y -= 1
-                if (x,y) in self.rocks or (x,y) in self.rolled_boulders or y == 0:
-                    self.rolled_boulders.append((x,y+1))
-                    break
-
-    def __repr__(self) -> str:
-        s = ''
-        for y in range(self.height):
-            for x in range(self.width):
-                if (x, y) in self.boulders:
-                    s += 'o'
-                elif (x, y) in self.rolled_boulders:
-                    s += '0'
-                elif (x, y) in self.rocks:
-                    s += '#'
-                else:
-                    s += '.'
-            s += '\n'
-        return s
-    
-    def load_on_north(self) -> int:
-        assert not self.boulders
-        total = 0
-        for _, y in self.rolled_boulders:
-            total += self.height - y
-        return total
-
-
-
-
-
-def parse(text: str) -> State:
-    lines = text.splitlines()
-    state = State(len(lines[0]), len(lines))
-    for y, line in enumerate(lines):
-        for x, c in enumerate(line):
-            match c:
-                case '#':
-                    state.rocks.append((x,y))
-                case '.':
-                    pass
-                case 'O':
-                    state.boulders.append((x,y))
-                case other:
-                    raise Exception(f'Unexpected char: {other}')
-    return state
+def _hash(s: str) -> int:
+    current = 0
+    for c in s:
+        current += ord(c)
+        current *= 17
+        current %= 256
+    return current
 
 def run(text: str) -> int:
-    state = parse(text)
-    print(f'{state}')
-    state.roll_north()
-    print(f'{state}')
-    return state.load_on_north()
-    
+    parts = parse(text)
+    return sum(map(_hash, parts))
 
 if __name__ == "__main__":
     with open('input.txt') as f:
@@ -73,18 +22,56 @@ if __name__ == "__main__":
 
 class Tests(unittest.TestCase):
     def test(self):
-        text = '''\
-O....#....
-O.OO#....#
-.....##...
-OO.#O....O
-.O.....O#.
-O.#..O.#.#
-..O..#O..O
-.......O..
-#....###..
-#OO..#....\
-'''
-        self.assertEqual(136, run(text))
+        text = 'rn=1,cm-,qp=3,cm=2,qp-,pc=4,ot=9,ab=5,pc-,pc=6,ot=7\n'
+        self.assertEqual(1320, run(text))
+
+    def test_hash(self):
+        text = 'HASH'
+        self.assertEqual(52, _hash(text))
+
+    def test_rn(self):
+        text = '''rn=1'''
+        self.assertEqual(30, run(text))
+
+    def test_cm(self):
+        text = '''cm-'''
+        self.assertEqual(253, run(text))
+        
+    def test_qp(self):
+        text = 'qp=3'
+        self.assertEqual(97, run(text))
+
+    def test_cm2(self):
+        text = 'cm=2'
+        self.assertEqual(47, run(text))
+
+    def test_qpminus(self):
+        text = 'qp-'
+        self.assertEqual(14, run(text))
+
+    def test_pc4(self):
+        text = 'pc=4'
+        self.assertEqual(180, run(text))
+
+    def test_ot9(self):
+        text = 'ot=9'
+        self.assertEqual( 9, run(text))
+
+    def test_ab(self):
+        text = 'ab=5'
+        self.assertEqual( 197, run(text))
+
+    def test_pcminus(self):
+        text = 'pc-'
+        self.assertEqual( 48, run(text))
+
+    def test_pc6(self):
+        text = 'pc=6'
+        self.assertEqual( 214, run(text))
+
+    def test_ot7(self):
+        text = 'ot=7'
+        self.assertEqual( 231, run(text))
+
 
 
