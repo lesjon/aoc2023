@@ -1,85 +1,66 @@
 import unittest
-import itertools
 
-def parse(text: str) -> list[tuple[str, list[int]]]:
-    result = map(str.split, text.splitlines())
-    result = ((s, i.split(',')) for s, i in result)
-    result = [(s, list(map(int, i))) for s, i in result]
-    return result
+def reflection_from(n: int, line: str) -> bool:
+    print(f'reflection_from({n}, {line})')
+    assert n > 0
+    for i in range(n):
+        left = n-i-1
+        right = n+i
+        if left < 0 or right >= len(line):
+            break
+        if line[left] != line[right]:
+            return False
+    return True
 
-def get_space_needed(ints: list[int]) -> int:
-    result = -1
-    for i in ints:
-        result += 1 + i
-    return result
-
-
-def get_possibilities(length: int, ints: list[int]) -> set[str]:
-    brokens = ['#' * i for i in ints]
-
-    working = ['.' for _ in range(length-sum(ints))]
-    minimal = [[b,w] for b,w in zip(brokens[:-1],working)].flatten()
-    minimal.append(brokens[-1])
-    result = []
-    for w in working[len(brokens)-1:]:
-
-
-    return set(possibilities)
-
-
-def main(text: str) -> int:
-    line_nums = parse(text)
+def run(text: str) -> int:
     total = 0
-    for i, (line, nums) in enumerate(line_nums):
-        print(f'{i}/{len(line_nums)}')
-        possibilities = get_possibilities(line, nums)
-        total += len(list(filter(lambda p: valid(p, nums), possibilities)))
-
+    for block in text.split('\n\n'):
+        lines = block.splitlines()
+        print(f'{lines=}')
+        hori_reflections = {i for i in range(1, block.index('\n'))}
+        for line in lines:
+            to_remove = []
+            for i in hori_reflections:
+                if not reflection_from(i, line):
+                    to_remove.append(i)
+            hori_reflections = hori_reflections.difference(to_remove)
+        print(f'{hori_reflections=}')
+        if len(hori_reflections) == 1:
+            total += next(iter(hori_reflections))
+            continue
+        lines = list(map(lambda t: ''.join(t), zip(*lines)))
+        vert_reflections = {i for i in range(1, len(lines[0]))}
+        print(f'flipped {lines=}')
+        for line in lines:
+            to_remove = []
+            for i in vert_reflections:
+                if not reflection_from(i, line):
+                    to_remove.append(i)
+            vert_reflections = vert_reflections.difference(to_remove)
+        print(f'{vert_reflections=}')
+        assert len(vert_reflections) == 1
+        total += 100 * next(iter(vert_reflections))
     return total
 
-
 if __name__ == "__main__":
-    with open('input.txt', 'r') as f:
-        text = f.read()
-    print(main(text))
+    with open('input.txt') as f:
+        print(run(f.read()))
 
 class Tests(unittest.TestCase):
-    def test_short(self):
-        text = '???.### 1,1,3'
-        self.assertEqual(1, main(text))
-        text = '.??..??...?##. 1,1,3'
-        self.assertEqual(4, main(text))  
-        text = '?###???????? 3,2,1'
-        self.assertEqual(10, main(text))  
-
-
     def test(self):
-        text = '''???.### 1,1,3
-.??..??...?##. 1,1,3
-?#?#?#?#?#?#?#? 1,3,1,6
-????.#...#... 4,1,1
-????.######..#####. 1,6,5
-?###???????? 3,2,1
-'''
-        self.assertEqual(21, main(text))
-    
-    def test_possibilities(self):
-        lines = '?#?.'
-        expected = { '.#..', }
-        self.assertEqual(expected, get_possibilities(lines, [1]))
-        expected = {  '.##.', '##..'}
-        self.assertEqual(expected, get_possibilities(lines, [2]))
-        expected = {  '###.'}
-        self.assertEqual(expected, get_possibilities(lines, [3]))
+        text = '''#.##..##.
+..#.##.#.
+##......#
+##......#
+..#.##.#.
+..##..##.
+#.#.##.#.
 
-    def test_row_2(self):
-        text = '???????##?????' 
-        ints = [1,2,8]
-        expecteds = {
-'#.##..########',
-'#..##.########',
-'.#.##.########',
-'#.##.########.',
-        }
-        self.assertEqual(expecteds, get_possibilities(text, ints))
-
+#...##..#
+#....#..#
+..##..###
+#####.##.
+#####.##.
+..##..###
+#....#..#'''
+        self.assertEqual(405, run(text))
