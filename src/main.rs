@@ -28,7 +28,7 @@ struct State {
 
 impl Eq for State {}
 
-const ASTAR: i32 = 0;
+const ASTAR: i32 = 1;
 
 impl PartialEq<Self> for State {
     fn eq(&self, other: &Self) -> bool {
@@ -48,18 +48,26 @@ impl PartialOrd<Self> for State {
     }
 }
 
-const MAX_STRAIGHT: i32 = 3;
+const MIN_STRAIGHT: i32 = 4;
+const MAX_STRAIGHT: i32 = 10;
+
+fn is_init(node: &PathNode) -> bool {
+    node.dx == 0 && node.dy == 0
+}
 
 impl State {
     fn right(&self, city_map: &Vec<Vec<i32>>) -> Option<Self> {
         if self.path_node.x + 1 == city_map[0].len() {
             return None;
         }
+        if (!is_init(&self.path_node)) && (self.path_node.dx == 0 && self.path_node.dy.abs() < MIN_STRAIGHT) {
+            return None;
+        }
         if self.path_node.dx == MAX_STRAIGHT {
             return None;
         }
         if self.path_node.dx < 0 {
-            return None
+            return None;
         }
         let x = self.path_node.x + 1;
         let y = self.path_node.y;
@@ -82,11 +90,14 @@ impl State {
         if self.path_node.y + 1 == city_map.len() {
             return None;
         }
+        if (!is_init(&self.path_node)) && (self.path_node.dy == 0 && self.path_node.dx.abs() < MIN_STRAIGHT) {
+            return None;
+        }
         if self.path_node.dy == MAX_STRAIGHT {
             return None;
         }
         if self.path_node.dy < 0 {
-            return None
+            return None;
         }
         let x = self.path_node.x;
         let y = self.path_node.y + 1;
@@ -104,15 +115,19 @@ impl State {
             path,
         })
     }
+
     fn left(&self, city_map: &Vec<Vec<i32>>) -> Option<Self> {
         if self.path_node.x == 0 {
+            return None;
+        }
+        if (!is_init(&self.path_node)) && (self.path_node.dx == 0 && self.path_node.dy.abs() < MIN_STRAIGHT) {
             return None;
         }
         if self.path_node.dx == -MAX_STRAIGHT {
             return None;
         }
         if self.path_node.dx > 0 {
-            return None
+            return None;
         }
         let x = self.path_node.x - 1;
         let y = self.path_node.y;
@@ -135,11 +150,14 @@ impl State {
         if self.path_node.y == 0 {
             return None;
         }
+        if (!is_init(&self.path_node)) && (self.path_node.dy == 0 && self.path_node.dx.abs() < MIN_STRAIGHT) {
+            return None;
+        }
         if self.path_node.dy == -MAX_STRAIGHT {
             return None;
         }
         if self.path_node.dy > 0 {
-            return None
+            return None;
         }
         let x = self.path_node.x;
         let y = self.path_node.y - 1;
@@ -266,6 +284,6 @@ mod tests {
 1224686865563
 2546548887735
 4322674655533";
-        assert_eq!(Some(102), run(text))
+        assert_eq!(Some(94), run(text))
     }
 }
