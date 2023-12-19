@@ -1,38 +1,55 @@
 import unittest
 
 
-PART2 = False
+X_KEY = None
 
-def parse(text: str) -> list[tuple[range, range]]:
-    result = []
+def parse_steps(steps: str) -> int:
+    return int(float.fromhex(steps))
+
+def parse(text: str) -> tuple[dict[int, list[range]],int,int, dict[tuple[int,int], int], list[int]]:
+    min_y = max_y = 0
+    trenches = dict()
+    trenches[X_KEY] = []
+    corners = dict()
+    current = [0,0]
+    columns = {current[0]}
     for line in text.splitlines():
         dir, steps, color = line.split()
-        if PART2:
-            match (color[2:7], color[7]):
-                case (steps, '1'):
-                    steps = int(float.fromhex(steps))
-                    result.append((range(0),range(steps)))
-                case (steps, '0'):
-                    steps = int(float.fromhex(steps))
-                    result.append((range(steps),range(0)))
-                case (steps, '3'):
-                    steps = int(float.fromhex(steps))
-                    result.append((range(0),range(-steps,0)))
-                case (steps, '2'):
-                    steps = int(float.fromhex(steps))
-                    result.append((range(-steps, 0),range(0)))
-        else:
-            match (steps, dir):
-                case (steps, 'D'):
-                    result.append((range(0),range(int(float.fromhex(steps)))))
-                case (steps, 'R'):
-                    result.append((range(int(float.fromhex(steps))),range(0)))
-                case (steps, 'U'):
-                    result.append((range(0),range(-int(float.fromhex(steps)),0)))
-                case (steps, 'L'):
-                    result.append((range(-int(float.fromhex(steps)), 0),range(0)))
-    return result
-
+        match (color[2:7], color[7]):
+            case (steps, '0'):
+                steps = parse_steps(steps)
+                trenches[None].append(range(current[0], current[0]+steps))
+                current[0] += steps
+                columns.add(current[0])
+            case (steps, '1'):
+                corners[tuple(current)] = 1
+                steps = parse_steps(steps)
+                if current[0] in trenches:
+                    trenches[current[0]].append(range(current[1], current[1]+steps))
+                else:
+                    trenches[current[0]] = [range(current[1], current[1]+steps)]
+                current[1] += steps
+                corners[tuple(current)] = 1
+                max_y = max(max_y, current[1])
+            case (steps, '3'):
+                corners[tuple(current)] = -1
+                steps = parse_steps(steps)
+                if current[0] in trenches:
+                    trenches[current[0]].append(range(current[1]-steps, current[1]))
+                else:
+                    trenches[current[0]] = [range(current[1]-steps, current[1])]
+                current[1] -= steps
+                corners[tuple(current)] = -1
+                min_y = min(min_y, current[1])
+            case (steps, '2'):
+                steps = parse_steps(steps)
+                trenches[None].append(range(current[0]-steps, current[0]))
+                current[0] -= steps
+                columns.add(current[0])
+            case other:
+                raise Exception(f'Unknown directions {other}')
+    columns = sorted(columns)
+    return trenches, min_y , max_y, corners, columns
 
 
 def sign(num: int) -> int:
@@ -43,66 +60,44 @@ def sign(num: int) -> int:
     return 0
 
 def main(text: str) -> int:
-    instrs = parse(text)
-    min_x = max_x = min_y = max_y = 0
-    current = (0,0)
-    path: dict[tuple[int,int], tuple[int, int]] = {}
-    path.update({current: (0,0)})
-    for (x_range,y_range) in instrs:
-        print(f'{x_range} {y_range}')
-        y_length = len(y_range)
-        for i, y in enumerate(y_range):
-            if i == 0:
-                path[current] = (0, sign(y))
-            current = (current[0], current[1] + sign(y))
-            if i+1 == y_length:
-                path[current] = (0, sign(y))
-            else:
-                path[current] = (0, 2*sign(y))
-            min_y = min(min_y, current[1])
-            max_y = max(max_y, current[1])
-        for x in x_range:
-            current = (current[0] + sign(x), current[1])
-            if not current in path:
-                path.update({current:(sign(x), 0)})
-            min_x = min(min_x, current[0])
-            max_x = max(max_x, current[0])
-    print(f'{min_x=}-{max_x=} {min_y=}-{max_y=}')
-    print(f'{len(path)=}')
-    inners = set()
-    for y in range(min_y, max_y+1):
-        inside = False
-        in_trench = 0
-        for x in range(min_x, max_x+1):
-            if (x,y) in path:
-                _,y_dir = path.get((x,y))
-                print(abs(y_dir), end='')
-                # match y_dir:
-                #     case 1 | 2:
-                #         if not PART2:
-                #             print('v', end='')
-                #     case -1 | -2:
-                #         if not PART2:
-                #             print('^', end='')
-                #     case other:
-                #         if not PART2:
-                #             print(other, end='')
-                in_trench += y_dir
-            else:
-                if (in_trench // 2 ) % 2 == 1:
-                    inside = not inside
-                    in_trench = 0
-                if inside:
-                    inners.add((x,y))
-                    if not PART2:
-                        print('I', end='')
-                else:
-                    if not PART2:
-                        print('.', end='')
-        if not PART2:
-            print()
+    trenches, min_y , max_y, corners, columns = parse(text)
+    
+    print(f'y_range:{min_y} - {max_y}')
+    print(f'{len(trenches)=}')
+    print(f'{trenches=}')
+    print(f'{corners=}')
+    print(f'{columns=}')
+    inners = 0 
+    y_range = range(min_y, max_y+1)
+    for i_y, y in enumerate(y_range):
+        print(i_y/len(y_range))
+        crossings = 0
+        half_crossings = 0
+        for i_x, x in enumerate(columns[:-1]):
+            print(f'{(x,y)=}')
+            next_x = columns[i_x+1]
+            columns_trenches = trenches[x]
+            if (x,y) in corners:
+                half_crossings += corners[(x,y)]
+                print(f'{half_crossings=} {crossings=}')
+                if half_crossings % 2 == 0:
+                    half_crossings = 0
+                    crossings += 1
+            elif any(y in trench for trench in columns_trenches):
+                crossings += 1
+            if crossings % 2 == 1:
+                inners += next_x - x
+                print(f'increased {inners=}')
+        print(f' {crossings=}')
+        raise
 
-    return len(path) + len(inners)
+    print(f'{trenches=}')
+    trench_lens = 0
+    for l in trenches.values():
+        trench_lens += sum(map(len, l))
+    print(f'{trench_lens =}')
+
+    return trench_lens + inners
 
 
 if __name__ == "__main__":
@@ -111,6 +106,19 @@ if __name__ == "__main__":
     print(main(text))
 
 class Tests(unittest.TestCase):
+# 0 means R, 1 means D, 2 means L, and 3 means U.
+#     def test(self):
+#         text = '''R 6 (#000060)
+# R 6 (#000043)
+# R 6 (#000022)
+# R 6 (#000021)
+# R 6 (#000022)
+# R 6 (#000023)
+# R 6 (#000022)
+# R 6 (#000041)
+# '''
+        # self.assertEqual(25, main(text))
+
     def test(self):
         text = '''R 6 (#70c710)
 D 5 (#0dc571)
