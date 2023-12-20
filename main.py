@@ -1,160 +1,174 @@
 import unittest
+from typing import Optional
+
+def flip_flop(state: tuple[str, list[str], dict[str, int]| int], signal: int) -> tuple[tuple[str, list[str], dict[str, int] | int], Optional[int]]:
+# Flip-flop modules (prefix %) are either on or off; they are initially off. If a flip-flop module receives a high pulse, it is ignored and nothing happens. However, if a flip-flop module receives a low pulse, it flips between on and off. If it was off, it turns on and sends a high pulse. If it was on, it turns off and sends a low pulse.
+    assert state[0] == '%'
+    assert isinstance(state[2], int)
+    if signal == 1:
+        return state, None
+    elif signal == 0:
+        return (*state[:2], 1-state[2]), 1-state[2]
+    raise
+
+def conjunction(state: tuple[str, list[str], dict[str, int]| int], signal: tuple[str, int]) -> tuple[tuple[str, list[str], dict[str, int]| int], int]:
+# Conjunction modules (prefix &) remember the type of the most recent pulse received from each of their connected input modules; they initially default to remembering a low pulse for each input. When a pulse is received, the conjunction module first updates its memory for that input. Then, if it remembers high pulses for all inputs, it sends a low pulse; otherwise, it sends a high pulse.
+    assert state[0] == '&'
+    assert isinstance(state[2], dict)
+    state[2][signal[0]] = signal[1]
+    return state, 1 if sum(state[2].values()) == len(state[2]) else 0
 
 
-X_KEY = None
-
-def parse_steps(steps: str) -> int:
-    return int(float.fromhex(steps))
-
-def parse(text: str) -> tuple[dict[int, list[range]],list[int], dict[tuple[int,int], int], list[int]]:
-    min_y = max_y = 0
-    trenches = dict()
-    trenches[X_KEY] = []
-    corners = dict()
-    current = [0,0]
-    columns = {current[0]}
-    rows = {current[1]}
+def parse(text: str) -> dict[str, tuple[str, list[str], dict[str, int]| int]]:
+    modules = {}
+    connections = []
     for line in text.splitlines():
-        dir, steps, color = line.split()
-        match (color[2:7], color[7]):
-            case (steps, '0'):
-                steps = parse_steps(steps)
-                trenches[None].append(range(current[0], current[0]+steps))
-                current[0] += steps
-                columns.add(current[0])
-            case (steps, '1'):
-                corners[tuple(current)] = 1
-                steps = parse_steps(steps)
-                if current[0] in trenches:
-                    trenches[current[0]].append(range(current[1], current[1]+steps))
-                else:
-                    trenches[current[0]] = [range(current[1], current[1]+steps)]
-                current[1] += steps
-                rows.add(current[1])
-                corners[tuple(current)] = 1
-                max_y = max(max_y, current[1])
-            case (steps, '3'):
-                corners[tuple(current)] = -1
-                steps = parse_steps(steps)
-                if current[0] in trenches:
-                    trenches[current[0]].append(range(current[1]-steps, current[1]))
-                else:
-                    trenches[current[0]] = [range(current[1]-steps, current[1])]
-                current[1] -= steps
-                rows.add(current[1])
-                corners[tuple(current)] = -1
-                min_y = min(min_y, current[1])
-            case (steps, '2'):
-                steps = parse_steps(steps)
-                trenches[None].append(range(current[0]-steps, current[0]))
-                current[0] -= steps
-                columns.add(current[0])
+        match line.split():
+            case ('broadcaster', '->', *targets):
+                targets = list(map(lambda t: t.rstrip(',') , targets))
+                for t in targets:
+                    connections.append(('broadcaster', t))
+                modules['broadcaster'] = (None, targets, None)
+            case (id, '->', *targets):
+                ty, label = id[0], id[1:]
+                targets = list(map(lambda t: t.rstrip(',') , targets))
+                for t in targets:
+                    connections.append((label, t))
+                state = dict() if ty == '&' else 0
+                modules[label] = (ty, targets, state)
             case other:
-                raise Exception(f'Unknown directions {other}')
-    columns = sorted(columns)
-    rows = sorted(rows)
-    return trenches, rows, corners, columns
+                raise Exception(f'Parse error: {other}')
+    print(f'{connections=}')
+    print(f'{modules=}')
+    for label, target in connections:
+        if target == 'output':
+            continue
+        if isinstance( modules[target][2], dict):
+            modules[target][2][label] = 0
+    return modules
+
+def main(text: str, presses: int) -> int:
+    modules = parse(text)
+    low_pulses = high_pulses = 0
+    print(f'{modules=}')
+    for i in range(presses):
+        print('for', i)
+        signals: list[tuple[str, int]] = [('broadcaster', 0)]
+        print('while')
+        while signals:
+            signal = signals.pop(0)
+# button -low-> broadcaster
+# broadcaster -low-> a
+# a -high-> inv
+# a -high-> con
+# inv -low-> b
+# con -high-> output
+# b -high-> con
+# con -low-> output
+            print(f'{signal=}')
+            module = modules[signal[0]]
+            print(f'\n{module=} -{{', end='')
+            match module[0]:
+                case '&':
+                    modules[signal[0]], output = conjunction(module, signal)
+                    for t in module[1]:
+                        if output == 0:
+                            low_pulses += 1
+                        else:
+                            high_pulses += 1
+                        if t != 'output':
+                            print(f'{output=}}}-> {t}')
+                            signals.append((t, output))
+                case '%':
+                    modules[signal[0]], output = flip_flop(module, signal[1])
+                    if not output is None:
+                        for t in module[1]:
+                            if t == 0:
+                                low_pulses += 1
+                            else:
+                                high_pulses += 1
+                            if t != 'output':
+                                signals.append((t, output))
+                    print(output)
+                case None:
+                    output = signal[1]
+                    for t in module[1]:
+                        if output == 0:
+                            low_pulses += 1
+                        else:
+                            high_pulses += 1
+                        if t != 'output':
+                            print(f'{output=}}}-> {t}')
+                            signals.append((t, output))
+                case other:
+                    raise Exception(f'Unknown module: {other}')
+            print(f'{modules=}')
+        print(modules)
+    print(low_pulses, high_pulses)
+    return low_pulses * high_pulses
 
 
-def sign(num: int) -> int:
-    if num < 0:
-        return -1
-    elif num >= 0:
-        return 1
-    return 0
-
-def main(text: str) -> int:
-    trenches, rows, corners, columns = parse(text)
     
-    print(f'{len(trenches)=}')
-    print(f'{trenches=}')
-    print(f'{corners=}')
-    print(f'{columns=}')
-    print(f'{rows=}')
-    inners = 0 
-    inner_poss = []
-    for i_y, y in enumerate(rows[:-1]):
-        next_y = rows[i_y+1]
-        crossings = 0
-        half_crossings = 0
-        for i_x, x in enumerate(columns[:1]):
-            print(f'{(x,y)=}')
-            next_x = columns[i_x+1]
-            columns_trenches = trenches[x]
-            if (x,y) in corners:
-                half_crossings += corners[(x,y)]
-                print(f'{half_crossings=} {crossings=}')
-                if abs(half_crossings) // 2 == 1:
-                    print(f'{abs(half_crossings) // 2 == 1}')
-                    half_crossings = 0
-                    crossings += 1
-            elif any(y in trench for trench in columns_trenches):
-                print(f'any {y} in trench')
-                crossings += 1
-            if crossings % 2 == 1:
-                print(f'({next_x=} - {x=}) * ({next_y=} - {y=})')
-                inners += (next_x - x) * (next_y - y )
-                for _y in range(y, next_y):
-                    for _x in range(x, next_x):
-                        inner_poss.append((_x,_y))
-
-                print(f'increased {inners=}')
-        print(f'end {crossings=}')
-    print(f'{inner_poss=}')
-    for y in range(rows[0]-1, rows[-1]+1):
-        for x in range(columns[0]-1, columns[-1]+1):
-            if (x,y) == (0,0):
-                print('0', end='')
-            elif (x,y) in inner_poss:
-                print('I', end='')
-            else:
-                print('.', end='')
-        print()
-
-
-    print(f'{trenches=}')
-    trench_lens = 0
-    for l in trenches.values():
-        trench_lens += sum(map(len, l))
-    print(f'{trench_lens =}')
-
-    return inners
 
 
 if __name__ == "__main__":
     with open('input.txt', 'r') as f:
         text = f.read()
-    print(main(text))
+    print(main(text), 1000)
 
 class Tests(unittest.TestCase):
-# 0 means R, 1 means D, 2 means L, and 3 means U.
     def test(self):
-        text = '''R 6 (#000060)
-R 6 (#000043)
-R 6 (#000022)
-R 6 (#000021)
-R 6 (#000022)
-R 6 (#000023)
-R 6 (#000022)
-R 6 (#000041)
-'''
-        self.assertEqual(25, main(text))
-
-#     def test(self):
-#         text = '''R 6 (#70c710)
-# D 5 (#0dc571)
-# L 2 (#5713f0)
-# D 2 (#d2c081)
-# R 2 (#59c680)
-# D 2 (#411b91)
-# L 5 (#8ceee2)
-# U 2 (#caa173)
-# L 1 (#1b58a2)
-# U 2 (#caa171)
-# R 2 (#7807d2)
-# U 3 (#a77fa3)
-# L 2 (#015232)
-# U 2 (#7a21e3)
-# '''
-#         self.assertEqual(952408144115, main(text))
-
+        text = '''broadcaster -> a
+%a -> inv, con
+&inv -> b
+%b -> con
+&con -> output'''
+        self.assertEqual(11687500, main(text, 1000))
+# Here's what happens if you push the button once:
+#
+# button -low-> broadcaster
+# broadcaster -low-> a
+# a -high-> inv
+# a -high-> con
+# inv -low-> b
+# con -high-> output
+# b -high-> con
+# con -low-> output
+#
+# Both flip-flops turn on and a low pulse is sent to output! However,
+#   now that both flip-flops are on and con remembers a high pulse from each of its two inputs, pushing the button a second time does something different:
+#
+# button -low-> broadcaster
+# broadcaster -low-> a
+# a -low-> inv
+# a -low-> con
+# inv -high-> b
+# con -high-> output
+#
+# Flip-flop a turns off! Now, con remembers a low pulse from module a, and so it sends only a high pulse to output.
+#
+# Push the button a third time:
+#
+# button -low-> broadcaster
+# broadcaster -low-> a
+# a -high-> inv
+# a -high-> con
+# inv -low-> b
+# con -low-> output
+# b -low-> con
+# con -high-> output
+#
+# This time, flip-flop a turns on, then flip-flop b turns off. However, before b can turn off,
+#   the pulse sent to con is handled first, so it briefly remembers all high pulses for its inputs and sends a low pulse to output. After that,
+#   flip-flop b turns off, which causes con to update its state and send a high pulse to output.
+#
+# Finally, with a on and b off, push the button a fourth time:
+#
+# button -low-> broadcaster
+# broadcaster -low-> a
+# a -low-> inv
+# a -low-> con
+# inv -high-> b
+# con -high-> output
+#
+# This completes the cycle: a turns off, causing con to remember only low pulses and restoring all modules to their original states.
