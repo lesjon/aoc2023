@@ -62,11 +62,13 @@ def parse(text: str) -> tuple[dict[str, Module], set[str]]:
             outputs.add(target)
     return modules, outputs
 
-def main(text: str, presses: int) -> int:
+def main(text: str, max_presses: int) -> int:
     modules, outputs = parse(text)
     low_pulses = high_pulses = 0
     print(f'{modules=}')
-    for i in range(presses):
+    i = 0
+    while True:
+        i += 1
         print('for', i)
         # button press
         low_pulses += 1
@@ -81,7 +83,7 @@ def main(text: str, presses: int) -> int:
 # con -high-> output
 # b -high-> con
 # con -low-> output
-            # print(f'{signal=}')
+
             source_module = modules[signal[0]]
             # print(f'\n{signal[0]} -[{signal[1]}]', end='')
             for t in source_module.targets:
@@ -89,6 +91,8 @@ def main(text: str, presses: int) -> int:
                 # print(f'{signal[1]=} {low_pulses=} {high_pulses=}') 
                 low_pulses += 1 - signal[1]
                 high_pulses += signal[1]
+                if t == 'rx' and signal[1] == 0:
+                    return i
                 if t in outputs:
                     continue
                 output = None
@@ -102,10 +106,6 @@ def main(text: str, presses: int) -> int:
                         output = signal[1]
                 if output is not None:
                     signals.append((t, output))
-            # print(f'{modules=}')
-        # print(modules)
-    print(low_pulses, high_pulses)
-    return low_pulses * high_pulses
 
 
     
