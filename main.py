@@ -28,7 +28,7 @@ def main(text: str, steps: int) -> int:
     positions[0] = {start}
     seen.add(start)
     for i in range(steps + 1):
-        print(f'{i=}')
+        print(f'{i/steps=}')
         current_positions = positions[i]
         positions[i+1] = set()
         for pos in current_positions:
@@ -51,7 +51,7 @@ def main(text: str, steps: int) -> int:
 if __name__ == "__main__":
     with open('input.txt', 'r') as f:
         text = f.read()
-    print(main(text, 64))
+    print(main(text, 26501365))
 
 class Tests(unittest.TestCase):
     def test(self):
