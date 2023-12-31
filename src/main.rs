@@ -1,109 +1,100 @@
-use std::collections::{HashMap, HashSet};
-
-fn get_possibilities(s: &str) -> HashSet<String> {
-    let mut result = HashSet::new();
-    if !s.contains('?') {
-        result.insert(s.to_string());
-        return result;
+fn count_possibilities(s: &str, ints: &[i32], mut state: char) -> usize {
+    if ints.len() == 0 && (!s.contains('#') || s.is_empty()){
+        return 1;
     }
-    let mut left_chars = vec![];
-    for (i, c) in s.char_indices() {
-        if c == '?' {
-            let subs = get_possibilities(&s[i + 1..]);
-            for mut sub in subs {
-                sub.insert(0, '.');
-                sub.insert_str(0, &String::from_utf8_lossy(&left_chars));
-                result.insert(sub.clone());
-                let dot_index = left_chars.len();
-                sub.remove(dot_index);
-                sub.insert(dot_index, '#');
-                result.insert(sub);
+    let mut result = 0;
+    let mut ints_index = 0;
+    let mut ints_vec = Vec::from(ints);
+    for (i,c) in s.char_indices() {
+        match (state, c) {
+            ('.', '.') => (),
+            ('.', '#') => {
+                if ints_vec.len() == ints_index || ints_vec[ints_index] == 0 {
+                    break
+                }
+                ints_vec[ints_index] -= 1;
+                state = c;
             }
-            return result;
-        } else {
-            left_chars.push(c as u8);
-        }
-    }
-    panic!("Unreachable state '{s}' contains '?' but not found in for loop")
-}
-
-fn valid(possibility: &str, ints: &[i32]) -> bool {
-    let mut compare: Vec<i32> = Vec::with_capacity(ints.len());
-    let mut current = 0;
-    for c in possibility.chars() {
-        match c {
-            '.' => {
-                if current > 0 {
-                    compare.push(current);
-                    current = 0;
+            ('#', '.') => {
+                if ints_vec[ints_index] != 0 {
+                    break
+                }
+                ints_index += 1;
+                state = c;
+                if ints_index == ints_vec.len() {
+                    if s[i..].contains('#') {
+                        return 0;
+                    }
+                    break
                 }
             }
-            '#' => {
-                current += 1;
+            ('#', '#') => {
+                if ints_vec[ints_index] == 0 {
+                    break
+                }
+                ints_vec[ints_index] -= 1;
             }
-            other => panic!("Unknown char {other}")
+            ('.', '?') => {
+                result += count_possibilities(&s[i+1..], &ints_vec[ints_index..], '.');
+                if ints_index >= ints_vec.len() {
+                    break
+                }
+                state = '#';
+                ints_vec[ints_index] -= 1;
+                if ints_vec[ints_index] == -1 {
+                    break
+                }
+            }
+            ('#', '?') => {
+                if ints_vec[ints_index] == 0 {
+                    result += count_possibilities(&s[i+1..], &ints_vec[ints_index+1..], '.');
+                }
+                if ints_index >= ints_vec.len() {
+                    break
+                }
+                state = '#';
+                ints_vec[ints_index] -= 1;
+                if ints_vec[ints_index] == -1 {
+                    break
+                }
+            }
+            other => panic!("Unknown {other:?}")
         }
     }
-    if current > 0 {
-        compare.push(current);
+    if ints_vec.len() == 0 || ints_vec[ints_vec.len()-1] == 0 {
+        result += 1;
     }
-    assert!(!compare.contains(&0));
-    if compare.len() != ints.len(){
-        return false;
-    }
-    return compare.iter().zip(ints).all(|(lhs, rhs)| rhs == lhs);
+    result
+}
+
+fn parse(line: &str) -> (&str, Vec<i32>) {
+    let parts = line.split_whitespace().collect::<Vec<&str>>();
+    let ints: Vec<i32> = parts[1].split(",").map(|s|s.parse().unwrap()).collect();
+    (parts[0], ints)
 }
 
 fn run(text: &str) -> usize {
-    let mut rows = HashMap::new();
-    for line in text.split("\n") {
-        let mut s = "";
-        for (i, part) in line.split_whitespace().enumerate() {
-            match i {
-                0 => s = part,
-                1 => {
-                    let ints = part.split(',').map(|num_str| num_str.parse::<i32>().unwrap()).collect::<Vec<i32>>();
-                    rows.insert(s, ints);
-                }
-                _ => panic!("Unreachable state: {i}")
-            }
-        }
-    }
-    println!("rows = {rows:?}");
     let mut total = 0;
-
-    for (s, ints) in rows {
-        let possibilities = get_possibilities(s);
-        let p_count =possibilities.len();
-        println!("'{s}' has {p_count} possibilities");
-        let q_count = s.chars().filter(|c| c.eq(&'?')).count();
-        assert_eq!(p_count, usize::pow(2, q_count as u32));
-        let p_count = possibilities.iter().filter(|p| valid(p, &ints)).count();
-        total += p_count;
+    for line in text.lines() {
+        let (s, mut ints) = parse(line);
+        let possibilities = count_possibilities(s, &mut ints[..], '.');
+        println!("{:?}, possibilities:{possibilities}", (s, ints));
+        total += possibilities;
     }
-    return total
+    total
 }
+
 fn main() {
     let input = include_str!("../input.txt");
     let total = run(input);
     // 7320 too low
+    // 8252 incorrect
     println!("{total}");
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{get_possibilities, run};
-
-    #[test]
-    fn test() {
-        let text = "????";
-        let expecteds = vec!["####", "###.", "##.#", "##..", "#.##", "#.#.", "#..#", "#...", ".###", ".##.", ".#.#", ".#..", "..##", "..#.", "...#", "...."];
-        let actual = get_possibilities(text);
-        assert_eq!(expecteds.len(), actual.len());
-        for expected in expecteds {
-            assert!(actual.contains(expected));
-        }
-    }
+    use crate::{run};
 
     #[test]
     fn test_sample(){
@@ -144,6 +135,17 @@ mod tests {
     fn test_sample6() {
         assert_eq!(10, run("?###???????? 3,2,1"));
     }
+
+    #[test]
+    fn test_sample6a() {
+        assert_eq!(10, run("??????? 2,1"));
+    }
+
+    #[test]
+    fn test_sample6b() {
+        assert_eq!(6, run("?????? 2,1"));
+    }
+
     #[test]
     fn test_sample7() {
         assert_eq!(1, run(".###.##.#..? 3,2,1"));
